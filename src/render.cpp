@@ -1,5 +1,6 @@
 #include "render.h"
 #include "web.h"
+#include "collision.h"
 
 #define BACKGROUND    rgba_color( 28,  43,  31, 255)
 #define HUD_BAR       rgba_color( 19,  29,  22, 255)
@@ -13,6 +14,7 @@
 #define NODE_ANCHOR   rgba_color(143, 168, 138, 255)
 #define NODE_LIVE     rgba_color( 95, 115,  88, 255)
 #define NODE_DEAD     rgba_color( 74,  79,  70, 255)
+#define DEBUG_TEXT    rgba_color(127, 212, 168, 255)
 
 /**
  * Pick a strand's colour from its state: slack strands are greyed out, and
@@ -100,10 +102,43 @@ void draw_hud(const game_data &game)
     draw_text("Lives " + to_string(game.lives),          TEXT_DIM,   140, 16);
     draw_text("Repairs " + to_string(game.repairs),      TEXT_DIM,   250, 16);
     draw_text("Insects " + to_string(game.insect_count), TEXT_DIM,   370, 16);
-    draw_text("Strands " + to_string(active_strand_count(game.web))
-              + "  severed " + to_string(severed_node_count(game.web)),
-                                                         TEXT_DIM,   500, 16);
-    draw_text("Arrows move   R repair   ESC quit",       TEXT_DIM,   740, 16);
+    draw_text("Arrows move   R repair   D debug   G grid", TEXT_DIM, 500, 16);
+}
+
+/**
+ * Draw the diagnostic counters, and optionally the grid itself.
+ *
+ * The two comparison figures are the evidence for the broad phase: the
+ * first is what the frame actually cost, the second is what testing every
+ * insect against every live strand would have cost.
+ */
+void draw_debug(const game_data &game)
+{
+    fill_rectangle(rgba_color(13, 22, 16, 220), 12, SCREEN_HEIGHT - 86, 330, 74);
+
+    draw_text("DEBUG", DEBUG_TEXT, 24, SCREEN_HEIGHT - 78);
+    draw_text("overlap tests this frame : " + to_string(game.comparisons),
+              DEBUG_TEXT, 24, SCREEN_HEIGHT - 60);
+    draw_text("all-pairs would have cost : " + to_string(game.naive_comparisons),
+              DEBUG_TEXT, 24, SCREEN_HEIGHT - 42);
+    draw_text("severed nodes : " + to_string(severed_node_count(game.web))
+              + "   strands : " + to_string(active_strand_count(game.web)),
+              DEBUG_TEXT, 24, SCREEN_HEIGHT - 24);
+
+    if (not game.show_grid) return;
+
+    color grid_clr = rgba_color(127, 212, 168, 45);
+    for (int c = 1; c < GRID_COLS; c++)
+    {
+        double x = c * (SCREEN_WIDTH / (double)GRID_COLS);
+        draw_line(grid_clr, x, 44, x, SCREEN_HEIGHT);
+    }
+    for (int r = 1; r < GRID_ROWS; r++)
+    {
+        double y = r * (SCREEN_HEIGHT / (double)GRID_ROWS);
+        if (y < 44) continue;
+        draw_line(grid_clr, 0, y, SCREEN_WIDTH, y);
+    }
 }
 
 /** Draw the whole play screen. */
@@ -114,4 +149,5 @@ void draw_playing(const game_data &game)
     draw_insects(game);
     draw_spider(game);
     draw_hud(game);
+    if (game.show_debug) draw_debug(game);
 }
