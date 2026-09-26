@@ -1,14 +1,15 @@
 // ---------------------------------------------------------------------------
 // Web Weaver - SIT102 Custom Project
-// Stage 2: the web is now a graph of nodes and strands that loads,
-// breaks and is repaired. A breadth-first search decides which parts are
-// still attached to an anchor.
+// Stage 3: insect movement is now blended steering forces, and both
+// naive collision loops are replaced by a single narrow-phase routine
+// behind a spatial grid, with counters recording what the grid saved.
 // ---------------------------------------------------------------------------
 
 #include "game_types.h"
 #include "insects.h"
 #include "render.h"
 #include "web.h"
+#include "collision.h"
 
 #define REPAIR_RECHARGE  12.0   // seconds between free repair charges
 #define MAX_REPAIRS      6
@@ -34,76 +35,7 @@ static void move_spider(spider &player, double dt)
 }
 
 /**
- * Test the spider against every insect in the array.
- *
- * This is the naive approach: the cost grows with the number of insects,
- * and every pair is tested whether or not the two are anywhere near each
- * other. 
- */
-static void check_catches(game_data &game)
-{
-    for (int i = 0; i < game.insect_count; i++)
-    {
-        insect &bug = game.insects[i];
-
-        double gap = point_point_distance(game.player.ent.pos, bug.ent.pos);
-        if (gap > game.player.ent.radius + bug.ent.radius) continue;
-
-        if (bug.kind == WASP)
-        {
-            game.lives--;
-            remove_insect(game, i);
-            i--;
-            continue;
-        }
-
-        game.score += insect_value(bug.kind);
-        remove_insect(game, i);
-        i--;
-    }
-}
-
-/**
- * Test every insect against every live strand.
- *
- * This is the preliminary approach: the cost is the insect count multiplied by
- * the strand count, and every pair is tested whether or not the two are
- * anywhere near each other. 
- */
-static void check_strand_hits(game_data &game)
-{
-    for (int i = 0; i < game.insect_count; i++)
-    {
-        insect &bug = game.insects[i];
-        if (bug.stuck) continue;
-
-        for (int s = 0; s < game.web.strand_count; s++)
-        {
-            if (not strand_is_live(game.web, s)) continue;
-
-            line strand = strand_line(game.web, s);
-            if (point_line_distance(bug.ent.pos, strand) > bug.ent.radius) continue;
-
-            if (bug.kind == WASP)
-            {
-                // Wasps cut through rather than sticking.
-                game.web.strands[s].tension += 30.0;
-            }
-            else
-            {
-                bug.stuck        = true;
-                bug.stuck_timer  = 2.0;
-                bug.stuck_strand = s;
-                bug.velocity     = vector_to(0, 0);
-            }
-            break;
-        }
-    }
-}
-
-/**
  * Trickle repair charges back over time so a damaged web stays recoverable.
- * Without this the player runs out of charges and the web can only decay.
  */
 static void recharge_repairs(game_data &game, double dt)
 {
@@ -117,6 +49,20 @@ static void recharge_repairs(game_data &game, double dt)
     }
 }
 
+/**
+ * Fill the level table. Difficulty is data read by the spawn routine rather
+ * than branches written into it, so tuning the curve means editing values.
+ */
+static void load_levels(game_data &game)
+{
+    //                     target  spawn   cap  speed
+    game.levels[0] = level{   250,   1.40,   8,  0.85 };
+    game.levels[1] = level{   600,   1.15,  12,  1.00 };
+    game.levels[2] = level{  1100,   0.95,  16,  1.15 };
+    game.levels[3] = level{  1800,   0.80,  20,  1.30 };
+    game.levels[4] = level{  2800,   0.65,  26,  1.45 };
+}
+
 /** Reset everything needed to begin a run. */
 static void start_new_game(game_data &game)
 {
@@ -127,13 +73,16 @@ static void start_new_game(game_data &game)
     game.player.ent.enabled = true;
     game.player.speed       = 260.0;
 
-    game.insect_count = 0;
-    game.score        = 0;
-    game.lives        = 3;
-    game.repairs      = 4;
-    game.repair_timer = 0.0;
-    game.spawn_timer  = 0.0;
-    game.elapsed      = 0.0;
+    game.insect_count      = 0;
+    game.score             = 0;
+    game.lives             = 3;
+    game.repairs           = 4;
+    game.repair_timer      = 0.0;
+    game.spawn_timer       = 0.0;
+    game.elapsed           = 0.0;
+    game.level_index       = 0;
+    game.comparisons       = 0;
+    game.naive_comparisons = 0;
 }
 
 int main()
@@ -141,6 +90,9 @@ int main()
     open_window("Web Weaver", SCREEN_WIDTH, SCREEN_HEIGHT);
 
     game_data game;
+    load_levels(game);
+    game.show_debug = true;
+    game.show_grid  = false;
     start_new_game(game);
 
     create_timer("frame");
@@ -166,18 +118,19 @@ int main()
         recharge_repairs(game, dt);
 
         if (key_typed(R_KEY)) repair_nearest(game);
+        if (key_typed(D_KEY)) game.show_debug = not game.show_debug;
+        if (key_typed(G_KEY)) game.show_grid  = not game.show_grid;
 
         game.spawn_timer -= dt;
         if (game.spawn_timer <= 0.0)
         {
             spawn_insect(game);
-            game.spawn_timer = 1.1;
+            game.spawn_timer = game.levels[game.level_index].spawn_interval;
         }
 
         update_insects(game, dt);
         update_web(game, dt);
-        check_strand_hits(game);
-        check_catches(game);
+        broad_phase(game);
 
         if (game.lives <= 0) start_new_game(game);
 
