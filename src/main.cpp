@@ -2,7 +2,7 @@
 // Web Weaver - SIT102 Custom Project
 // Stage 1: a playable core. Insects spawn, drift and expire; the spider
 // catches them on contact. Collision here is a direct test of the spider
-// against every insect - the naive version that stage 3 replaces.
+// against every insect.
 // ---------------------------------------------------------------------------
 
 #include "game_types.h"
@@ -34,7 +34,7 @@ static void move_spider(spider &player, double dt)
  *
  * This is the naive approach: the cost grows with the number of insects,
  * and every pair is tested whether or not the two are anywhere near each
- * other. Stage 3 replaces it with a spatial grid.
+ * other. 
  */
 static void check_catches(game_data &game)
 {
@@ -111,6 +111,8 @@ int main()
 
         update_insects(game, dt);
         check_catches(game);
+
+        if (game.lives <= 0) start_new_game(game);
 
         draw_playing(game);
         refresh_screen(60);
