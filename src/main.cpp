@@ -11,8 +11,8 @@
 #include "web.h"
 #include "collision.h"
 
-#define REPAIR_RECHARGE  12.0   // seconds between free repair charges
-#define MAX_REPAIRS      6
+#define REPAIR_RECHARGE  6.0   // seconds between free repair charges
+#define MAX_REPAIRS      8
 
 /**
  * Move the spider with the arrow keys, keeping it inside the play area.
@@ -56,11 +56,11 @@ static void recharge_repairs(game_data &game, double dt)
 static void load_levels(game_data &game)
 {
     //                     target  spawn   cap  speed
-    game.levels[0] = level{   250,   1.40,   8,  0.85 };
-    game.levels[1] = level{   600,   1.15,  12,  1.00 };
-    game.levels[2] = level{  1100,   0.95,  16,  1.15 };
-    game.levels[3] = level{  1800,   0.80,  20,  1.30 };
-    game.levels[4] = level{  2800,   0.65,  26,  1.45 };
+    game.levels[0] = level{   250,   0.70,  16,  0.85 };
+    game.levels[1] = level{   600,   0.58,  22,  1.00 };
+    game.levels[2] = level{  1100,   0.48,  28,  1.15 };
+    game.levels[3] = level{  1800,   0.40,  34,  1.30 };
+    game.levels[4] = level{  2800,   0.33,  42,  1.45 };
 }
 
 /** Reset everything needed to begin a run. */

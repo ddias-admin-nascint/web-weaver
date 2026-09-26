@@ -165,11 +165,13 @@ void spawn_insect(game_data &game)
 
     insect bug;
 
+    // Wasp share is halved to offset the doubled spawn rate, so overall
+    // density rises while the number of wasps per second stays the same.
     int roll = rnd(100);
-    if      (roll < 45) bug.kind = FLY;
-    else if (roll < 70) bug.kind = BUTTERFLY;
-    else if (roll < 92) bug.kind = WASP;
-    else                bug.kind = GOLDEN;
+    if      (roll < 52) bug.kind = FLY;        // 52%
+    else if (roll < 81) bug.kind = BUTTERFLY;  // 29%
+    else if (roll < 92) bug.kind = WASP;       // 11%
+    else                bug.kind = GOLDEN;     //  8%
 
     // Choose an edge, then a position along it.
     int edge = rnd(4);

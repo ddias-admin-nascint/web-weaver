@@ -82,8 +82,10 @@ void build_web(web_graph &web)
     web.strand_count = 0;
 
     double cx = SCREEN_WIDTH / 2.0;
-    double cy = SCREEN_HEIGHT / 2.0 + 20;
-    double ring_radius[WEB_RINGS] = { 110.0, 190.0, 270.0 };
+    // Centred between the HUD bar and the bottom edge, sized so the anchor
+    // ring stays fully on screen.
+    double cy = 406.0;
+    double ring_radius[WEB_RINGS] = { 90.0, 160.0, 225.0 };
 
     // Ring and spoke nodes. Index = ring * WEB_SPOKES + spoke.
     for (int ring = 0; ring < WEB_RINGS; ring++)
@@ -104,7 +106,7 @@ void build_web(web_graph &web)
     // Eight anchor nodes out towards the screen edge. More anchors means a
     // single failure cannot detach the whole web.
     int first_anchor = web.node_count;
-    double anchor_radius = 400.0;
+    double anchor_radius = 330.0;
     for (int i = 0; i < WEB_SPOKES; i++)
     {
         double angle = (i * (360.0 / WEB_SPOKES)) * M_PI / 180.0;
