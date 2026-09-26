@@ -1,0 +1,15 @@
+# Compiled binaries
+web_weaver
+tests
+sim
+*.o
+*.out
+
+# SplashKit runtime logs
+*.log
+logs/
+
+# Editor and OS
+.vscode/
+.idea/
+.DS_Store
