@@ -1,13 +1,14 @@
 // ---------------------------------------------------------------------------
 // Web Weaver - SIT102 Custom Project
-// Stage 1: a playable core. Insects spawn, drift and expire; the spider
-// catches them on contact. Collision here is a direct test of the spider
-// against every insect.
+// Stage 2: the web is now a graph of nodes and strands that loads,
+// breaks and is repaired. A breadth-first search decides which parts are
+// still attached to an anchor.
 // ---------------------------------------------------------------------------
 
 #include "game_types.h"
 #include "insects.h"
 #include "render.h"
+#include "web.h"
 
 /**
  * Move the spider with the arrow keys, keeping it inside the play area.
@@ -32,7 +33,7 @@ static void move_spider(spider &player, double dt)
 /**
  * Test the spider against every insect in the array.
  *
- * This is the naive approach: the cost grows with the number of insects,
+ * This is the preliminary approach: the cost grows with the number of insects,
  * and every pair is tested whether or not the two are anywhere near each
  * other. 
  */
@@ -59,9 +60,49 @@ static void check_catches(game_data &game)
     }
 }
 
+/**
+ * Test every insect against every live strand.
+ *
+ * This is the naive approach: the cost is the insect count multiplied by
+ * the strand count, and every pair is tested whether or not the two are
+ * anywhere near each other.
+ */
+static void check_strand_hits(game_data &game)
+{
+    for (int i = 0; i < game.insect_count; i++)
+    {
+        insect &bug = game.insects[i];
+        if (bug.stuck) continue;
+
+        for (int s = 0; s < game.web.strand_count; s++)
+        {
+            if (not strand_is_live(game.web, s)) continue;
+
+            line strand = strand_line(game.web, s);
+            if (point_line_distance(bug.ent.pos, strand) > bug.ent.radius) continue;
+
+            if (bug.kind == WASP)
+            {
+                // Wasps cut through rather than sticking.
+                game.web.strands[s].tension += 30.0;
+            }
+            else
+            {
+                bug.stuck        = true;
+                bug.stuck_timer  = 2.0;
+                bug.stuck_strand = s;
+                bug.velocity     = vector_to(0, 0);
+            }
+            break;
+        }
+    }
+}
+
 /** Reset everything needed to begin a run. */
 static void start_new_game(game_data &game)
 {
+    build_web(game.web);
+
     game.player.ent.pos     = point_at(SCREEN_WIDTH / 2.0, SCREEN_HEIGHT / 2.0);
     game.player.ent.radius  = 20.0;
     game.player.ent.enabled = true;
@@ -70,6 +111,7 @@ static void start_new_game(game_data &game)
     game.insect_count = 0;
     game.score        = 0;
     game.lives        = 3;
+    game.repairs      = 4;
     game.spawn_timer  = 0.0;
     game.elapsed      = 0.0;
 }
@@ -102,6 +144,8 @@ int main()
 
         move_spider(game.player, dt);
 
+        if (key_typed(R_KEY)) repair_nearest(game);
+
         game.spawn_timer -= dt;
         if (game.spawn_timer <= 0.0)
         {
@@ -110,6 +154,8 @@ int main()
         }
 
         update_insects(game, dt);
+        update_web(game, dt);
+        check_strand_hits(game);
         check_catches(game);
 
         if (game.lives <= 0) start_new_game(game);

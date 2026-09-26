@@ -1,4 +1,5 @@
 #include "insects.h"
+#include "web.h"
 
 /** @returns the points awarded for catching this kind of insect */
 int insect_value(insect_kind kind)
@@ -83,7 +84,11 @@ void spawn_insect(game_data &game)
     bug.ent.radius  = insect_radius(bug.kind);
     bug.ent.clr     = insect_colour(bug.kind);
     bug.ent.enabled = true;
-    bug.life_timer  = 9.0 + rnd(6);
+
+    bug.stuck        = false;
+    bug.stuck_timer  = 0.0;
+    bug.stuck_strand = -1;
+    bug.life_timer   = 9.0 + rnd(6);
 
     // Aim at the middle of the screen at this kind's speed.
     point_2d centre = point_at(SCREEN_WIDTH / 2.0, SCREEN_HEIGHT / 2.0);
@@ -108,12 +113,35 @@ void remove_insect(game_data &game, int index)
 
 /**
  * Advance every insect and expire the ones whose time is up.
+ * Stuck insects do not move, but they do load the strand holding them.
  */
 void update_insects(game_data &game, double dt)
 {
     for (int i = 0; i < game.insect_count; i++)
     {
         insect &bug = game.insects[i];
+
+        if (bug.stuck)
+        {
+            bug.stuck_timer -= dt;
+
+            // A held insect keeps loading the strand it is caught on.
+            if (bug.stuck_strand >= 0 and game.web.strands[bug.stuck_strand].active)
+            {
+                game.web.strands[bug.stuck_strand].tension += 16.0 * dt;
+            }
+            else
+            {
+                bug.stuck = false;   // the strand broke underneath it
+            }
+
+            if (bug.stuck_timer <= 0.0)
+            {
+                bug.stuck        = false;
+                bug.stuck_strand = -1;
+            }
+            continue;
+        }
 
         bug.ent.pos.x += bug.velocity.x * dt;
         bug.ent.pos.y += bug.velocity.y * dt;
