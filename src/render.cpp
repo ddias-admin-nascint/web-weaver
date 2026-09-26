@@ -1,12 +1,12 @@
 #include "render.h"
 #include "web.h"
+#include "insects.h"
 #include "collision.h"
 
 #define BACKGROUND    rgba_color( 28,  43,  31, 255)
 #define HUD_BAR       rgba_color( 19,  29,  22, 255)
 #define TEXT_BRIGHT   rgba_color(232, 239, 228, 255)
 #define TEXT_DIM      rgba_color(159, 181, 153, 255)
-#define SPIDER_BODY   rgba_color( 43,  28,  21, 255)
 #define STRAND_OK     rgba_color(107, 127,  94, 255)
 #define STRAND_WARM   rgba_color(239, 159,  39, 255)
 #define STRAND_HOT    rgba_color(226,  75,  74, 255)
@@ -14,11 +14,37 @@
 #define NODE_ANCHOR   rgba_color(143, 168, 138, 255)
 #define NODE_LIVE     rgba_color( 95, 115,  88, 255)
 #define NODE_DEAD     rgba_color( 74,  79,  70, 255)
+#define SPIDER_BODY   rgba_color( 43,  28,  21, 255)
 #define DEBUG_TEXT    rgba_color(127, 212, 168, 255)
+
+// The default SplashKit font is a fixed-width bitmap font, eight pixels per
+// character. There is no text_width for it, so centring is calculated from
+// the string length instead.
+#define CHAR_WIDTH    8.0
+
+/**
+ * Draw text centred horizontally on the screen.
+ * @param text the string to draw
+ * @param clr its colour
+ * @param y the top of the text
+ */
+static void draw_centred(const string &text, const color &clr, double y)
+{
+    draw_text(text, clr, SCREEN_WIDTH / 2.0 - (text.length() * CHAR_WIDTH) / 2.0, y);
+}
+
+/**
+ * Draw a heading centred on the screen.
+ */
+static void draw_heading(const string &text, const color &clr, double y)
+{
+    draw_text(text, clr, SCREEN_WIDTH / 2.0 - (text.length() * CHAR_WIDTH) / 2.0, y);
+}
 
 /**
  * Pick a strand's colour from its state: slack strands are greyed out, and
- * live strands shift from green through amber to red as tension rises.
+ * live strands shift from green through amber to red as tension rises, so
+ * the player can see which parts of the web are about to fail.
  */
 static color strand_colour(const web_graph &web, int strand_id)
 {
@@ -64,6 +90,7 @@ void draw_insects(const game_data &game)
 
         if (bug.kind == WASP)
         {
+            // A dark bar makes the dangerous insect readable at a glance.
             fill_rectangle(SPIDER_BODY,
                            bug.ent.pos.x - 2, bug.ent.pos.y - bug.ent.radius,
                            4, bug.ent.radius * 2);
@@ -97,12 +124,15 @@ void draw_spider(const game_data &game)
 /** Draw the status bar across the top of the play area. */
 void draw_hud(const game_data &game)
 {
+    const level &lv = game.levels[game.level_index];
+
     fill_rectangle(HUD_BAR, 0, 0, SCREEN_WIDTH, 44);
-    draw_text("Score " + to_string(game.score),          TEXT_BRIGHT, 16,  16);
-    draw_text("Lives " + to_string(game.lives),          TEXT_DIM,   140, 16);
-    draw_text("Repairs " + to_string(game.repairs),      TEXT_DIM,   250, 16);
-    draw_text("Insects " + to_string(game.insect_count), TEXT_DIM,   370, 16);
-    draw_text("Arrows move   R repair   D debug   G grid", TEXT_DIM, 500, 16);
+    draw_text("Score " + to_string(game.score), TEXT_BRIGHT, 16, 16);
+    draw_text("Target " + to_string(lv.target_score), TEXT_DIM, 140, 16);
+    draw_text("Level " + to_string(game.level_index + 1), TEXT_DIM, 270, 16);
+    draw_text("Lives " + to_string(game.lives), TEXT_DIM, 370, 16);
+    draw_text("Repairs " + to_string(game.repairs), TEXT_DIM, 470, 16);
+    draw_text("R repair  D debug  G grid  P pause", TEXT_DIM, 600, 16);
 }
 
 /**
@@ -141,7 +171,17 @@ void draw_debug(const game_data &game)
     }
 }
 
-/** Draw the whole play screen. */
+/** Draw the title screen. */
+void draw_menu(const game_data &game)
+{
+    clear_screen(BACKGROUND);
+    draw_web(game);
+    draw_heading("WEB WEAVER", TEXT_BRIGHT, 180);
+    draw_centred("Catch insects. Keep the web attached to its anchors.", TEXT_DIM, 220);
+    draw_centred("ENTER to start      S for high scores      ESC to quit", TEXT_DIM, 250);
+}
+
+/** Draw the play screen. */
 void draw_playing(const game_data &game)
 {
     clear_screen(BACKGROUND);
@@ -150,4 +190,56 @@ void draw_playing(const game_data &game)
     draw_spider(game);
     draw_hud(game);
     if (game.show_debug) draw_debug(game);
+}
+
+/** Draw the play screen dimmed, with a pause notice. */
+void draw_paused(const game_data &game)
+{
+    draw_playing(game);
+    fill_rectangle(rgba_color(0, 0, 0, 150), 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+    draw_heading("PAUSED", TEXT_BRIGHT, SCREEN_HEIGHT / 2);
+    draw_centred("P to resume", TEXT_DIM, SCREEN_HEIGHT / 2 + 26);
+}
+
+/** Draw the between-levels screen. */
+void draw_level_complete(const game_data &game)
+{
+    clear_screen(BACKGROUND);
+    draw_web(game);
+    draw_heading("LEVEL " + to_string(game.level_index + 1) + " COMPLETE", TEXT_BRIGHT, 250);
+    draw_centred("Score " + to_string(game.score), TEXT_DIM, 285);
+    draw_centred("ENTER to continue", TEXT_DIM, 315);
+}
+
+/** Draw the game over screen, including initials entry when the score qualifies. */
+void draw_game_over(const game_data &game)
+{
+    clear_screen(BACKGROUND);
+    draw_web(game);
+    draw_heading("GAME OVER", TEXT_BRIGHT, 240);
+    draw_centred("Final score " + to_string(game.score), TEXT_DIM, 275);
+    draw_heading("Initials: " + game.entry_name + "_", TEXT_BRIGHT, 315);
+    draw_centred("Type three letters, then ENTER", TEXT_DIM, 345);
+}
+
+/** Draw the ranked high score table. */
+void draw_scores(const game_data &game)
+{
+    clear_screen(BACKGROUND);
+    draw_heading("HIGH SCORES", TEXT_BRIGHT, 160);
+
+    if (game.score_count == 0)
+    {
+        draw_centred("No scores yet.", TEXT_DIM, 210);
+    }
+
+    for (int i = 0; i < game.score_count; i++)
+    {
+        draw_text(to_string(i + 1) + ".", TEXT_DIM, SCREEN_WIDTH / 2 - 110, 210 + i * 26);
+        draw_text(game.scores[i].name, TEXT_BRIGHT, SCREEN_WIDTH / 2 - 70, 210 + i * 26);
+        draw_text(to_string(game.scores[i].value), TEXT_BRIGHT,
+                  SCREEN_WIDTH / 2 + 30, 210 + i * 26);
+    }
+
+    draw_centred("ENTER to return", TEXT_DIM, 210 + MAX_SCORES * 26 + 30);
 }
