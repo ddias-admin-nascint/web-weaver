@@ -190,8 +190,10 @@ void broad_phase(game_data &game)
 
                 if (bug.kind == WASP and not bug.stuck)
                 {
+                    // A free wasp hurts. A trapped one can be taken safely.
                     game.lives--;
                     remove_insect(game, index);
+                    if (game.lives <= 0) game.screen = GAME_OVER;
                     return;
                 }
 

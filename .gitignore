@@ -4,6 +4,7 @@ tests
 sim
 *.o
 *.out
+web_weaver_single
 
 # SplashKit runtime logs
 *.log
@@ -13,3 +14,8 @@ logs/
 .vscode/
 .idea/
 .DS_Store
+
+# Local tooling
+make_single.py
+
+*:Zone.Identifier

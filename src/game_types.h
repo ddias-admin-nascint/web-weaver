@@ -15,6 +15,7 @@
 #define MAX_NODES           64
 #define MAX_STRANDS         128
 #define MAX_EDGES_PER_NODE  8
+#define MAX_SCORES          8
 #define LEVEL_COUNT         5
 
 // Broad-phase collision grid. Cell size is derived from these.
@@ -25,6 +26,8 @@
 // Web layout.
 #define WEB_SPOKES          8
 #define WEB_RINGS           3
+
+#define NAME_LENGTH         3
 
 /**
  * The kinds of insect that can spawn. The kind drives point value, size,
@@ -37,6 +40,20 @@ enum insect_kind
     BUTTERFLY,
     WASP,
     GOLDEN
+};
+
+/**
+ * The screen the game is currently showing. The event loop switches on this
+ * to choose which update and draw procedure to run.
+ */
+enum game_screen
+{
+    MENU,
+    PLAYING,
+    PAUSED,
+    LEVEL_COMPLETE,
+    GAME_OVER,
+    SCORES
 };
 
 /**
@@ -162,6 +179,15 @@ struct level
 };
 
 /**
+ * One row of the high score table.
+ */
+struct score_entry
+{
+    string      name;
+    int         value;
+};
+
+/**
  * Everything the game owns. Passing this by reference keeps parameter lists
  * short and lets procedures modify state in place.
  */
@@ -178,10 +204,14 @@ struct game_data
     level       levels[LEVEL_COUNT];
     int         level_index;
 
+    score_entry scores[MAX_SCORES];
+    int         score_count;
+
     int         score;
     int         lives;
     int         repairs;
     double      repair_timer;   // counts up to the next free repair charge
+    game_screen screen;
 
     double      spawn_timer;
     double      elapsed;
@@ -190,6 +220,8 @@ struct game_data
     int         naive_comparisons;  // tests an all-pairs approach would need
     bool        show_debug;
     bool        show_grid;
+
+    string      entry_name;         // initials being typed at game over
 };
 
 #endif
