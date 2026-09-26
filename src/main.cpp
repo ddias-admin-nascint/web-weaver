@@ -10,6 +10,9 @@
 #include "render.h"
 #include "web.h"
 
+#define REPAIR_RECHARGE  12.0   // seconds between free repair charges
+#define MAX_REPAIRS      6
+
 /**
  * Move the spider with the arrow keys, keeping it inside the play area.
  * Takes the spider by reference so it is modified in place.
@@ -33,7 +36,7 @@ static void move_spider(spider &player, double dt)
 /**
  * Test the spider against every insect in the array.
  *
- * This is the preliminary approach: the cost grows with the number of insects,
+ * This is the naive approach: the cost grows with the number of insects,
  * and every pair is tested whether or not the two are anywhere near each
  * other. 
  */
@@ -63,9 +66,9 @@ static void check_catches(game_data &game)
 /**
  * Test every insect against every live strand.
  *
- * This is the naive approach: the cost is the insect count multiplied by
+ * This is the preliminary approach: the cost is the insect count multiplied by
  * the strand count, and every pair is tested whether or not the two are
- * anywhere near each other.
+ * anywhere near each other. 
  */
 static void check_strand_hits(game_data &game)
 {
@@ -98,6 +101,22 @@ static void check_strand_hits(game_data &game)
     }
 }
 
+/**
+ * Trickle repair charges back over time so a damaged web stays recoverable.
+ * Without this the player runs out of charges and the web can only decay.
+ */
+static void recharge_repairs(game_data &game, double dt)
+{
+    if (game.repairs >= MAX_REPAIRS) return;
+
+    game.repair_timer += dt;
+    if (game.repair_timer >= REPAIR_RECHARGE)
+    {
+        game.repairs++;
+        game.repair_timer = 0.0;
+    }
+}
+
 /** Reset everything needed to begin a run. */
 static void start_new_game(game_data &game)
 {
@@ -112,6 +131,7 @@ static void start_new_game(game_data &game)
     game.score        = 0;
     game.lives        = 3;
     game.repairs      = 4;
+    game.repair_timer = 0.0;
     game.spawn_timer  = 0.0;
     game.elapsed      = 0.0;
 }
@@ -143,6 +163,7 @@ int main()
         game.elapsed += dt;
 
         move_spider(game.player, dt);
+        recharge_repairs(game, dt);
 
         if (key_typed(R_KEY)) repair_nearest(game);
 

@@ -104,6 +104,7 @@ struct game_data
     int         score;
     int         lives;
     int         repairs;
+    double      repair_timer;   // counts up to the next free repair charge
     double      spawn_timer;
     double      elapsed;
 };
